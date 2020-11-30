@@ -2,8 +2,6 @@
    - foss4gbe_new
   gather_facts: no
   vars:
-    gandi_api_key: kYGjmLKhP5glEUpRn4difxf3
-    mysql_password: w6LMLqph rWVCmRS4 V7xoE6bp
     years:
       - year: 2019
       - year: 2018
