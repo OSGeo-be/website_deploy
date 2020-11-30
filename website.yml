@@ -1,0 +1,139 @@
+- hosts:
+   - foss4gbe_new
+  gather_facts: no
+  vars:
+    gandi_api_key: kYGjmLKhP5glEUpRn4difxf3
+    mysql_password: w6LMLqph rWVCmRS4 V7xoE6bp
+    years:
+      - year: 2019
+      - year: 2018
+      - year: 2017
+      - year: 2016
+      - year: 2015
+    mysql_years:
+      - year: 2019
+      - year: 2018
+      - year: 2017
+      - year: 2016
+  tasks:
+    #- name: add private keys
+    #  # note: you must add these under /root/.ssh/instance_keys as scaleway is specail
+    #  
+    - name: install packages
+      apt:
+        name: apache2,mariadb-server,git,git-lfs,php,php-mysql,python-certbot-apache,etckeeper,python3-pymysql
+      tags:
+        - apt
+    - name: install python3-certbot-dns-gandi - manage https certificate
+      apt:
+        name: python3-certbot-dns-gandi
+        default_release: buster-backports
+        state: present
+    
+    - name: store credentials gandi (dns)
+      template:
+          src: templates/gandi.ini
+          dest: /root/gandi.ini
+          mode: 0600
+    
+    - name: get initial certificates
+      command:
+        cmd: certbot certonly -a certbot-plugin-gandi:dns --certbot-plugin-gandi:dns-credentials gandi.ini -d foss4g.be -d \*.foss4g.be --server https://acme-v02.api.letsencrypt.org/directory --register-unsafely-without-email
+        creates: /etc/letsencrypt/live/foss4g.be/fullchain.pem 
+
+
+    - name: ensure https certificate is renewed weekly
+      cron:
+          name: renew https certificate
+          job: "certbot renew -q -a certbot-plugin-gandi:dns --certbot-plugin-gandi:dns-credentials /root/gandi.ini --server https://     acme-v02.api.letsencrypt.org/directory"
+          special_time: weekly 
+
+    - name: make sure mod_rewrite/ssl is enabled
+      apache2_module:
+        name: "{{ item }}"
+        state: present
+      notify: apache restart
+      loop:
+        - ssl
+        - rewrite
+
+    - name: clone yearly repos
+      git:
+        repo: https://github.com/OSGeo-be/foss4g.be
+        dest: /var/www/{{ item.year }}.foss4g.be
+        version: b{{ item.year }}
+      loop: "{{ years }}"
+
+    - name: enable yearly site 
+      template:
+        src: year.conf
+        dest: /etc/apache2/sites-enabled/{{ item.year }}.conf
+      loop: "{{ years }}"
+      notify: apache restart
+    
+    - name: enable yearly site (https)
+      template:
+        src: year-le-ssl.conf
+        dest: /etc/apache2/sites-enabled/{{ item.year }}-le-ssl.conf
+      loop: "{{ years }}"
+      notify: apache restart
+
+    - name: enable override using htaccess
+      lineinfile:
+        path: /etc/apache2/apache2.conf
+        line: 'AllowOverride FileInfo Options'
+        regexp: '\s*AllowOverride.*'
+
+    - name: create mysql db
+      mysql_db:
+        name: "foss4g_{{ item.year }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      loop: "{{ mysql_years }}" 
+      tags:
+        - mysql
+
+    - 
+    - name: create mysql user
+      mysql_user:
+        name: "foss4g_{{ item.year }}"
+        password: "{{ mysql_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        # note we only grant select, for a new edition we should also allow insert
+        priv: "foss4g_{{ item.year }}.*:SELECT"
+      loop: "{{ mysql_years }}" 
+      tags:
+        - mysql
+
+    - name: copy data dump
+      copy:
+        src: "foss4g_{{ item.year }}.sql"
+        dest: "/tmp"
+      loop: "{{ mysql_years }}" 
+      tags: 
+        - never
+    - name: import dump
+      mysql_db:
+        name: "foss4g_{{ item.year }}"
+        state: import
+        target: /tmp/foss4g_{{ item.year }}.sql
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+      loop: "{{ mysql_years }}" 
+      tags:
+        - never
+    - name: add mysql config php file
+      template:
+        src: templates/mysql.php
+        dest: /var/www/{{ item.year}}.foss4g.be/htdocs/mysql.php
+      loop: "{{ mysql_years }}" 
+      tags:
+        - mysql
+
+
+
+
+  handlers:
+    - name: apache restart
+      systemd:
+        state: restarted
+        service: apache2
