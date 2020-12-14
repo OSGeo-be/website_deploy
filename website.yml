@@ -61,18 +61,22 @@
         dest: /var/www/{{ item.year }}.foss4g.be
         version: b{{ item.year }}
       loop: "{{ years }}"
+    
+    - name: disable default site
+      file:
+        dest: /etc/apache2/sites-enabled/000-default.conf
+        state: absent
 
-    - name: enable yearly site 
+    - name: forward http to https
       template:
-        src: year.conf
-        dest: /etc/apache2/sites-enabled/{{ item.year }}.conf
-      loop: "{{ years }}"
+        src: http.conf
+        dest: /etc/apache2/sites-enabled/http.conf
       notify: apache restart
     
     - name: enable yearly site (https)
       template:
         src: year-le-ssl.conf
-        dest: /etc/apache2/sites-enabled/{{ item.year }}-le-ssl.conf
+        dest: /etc/apache2/sites-enabled/{{ item.year }}.conf
       loop: "{{ years }}"
       notify: apache restart
 
@@ -136,8 +140,8 @@
 
     - name: add beOpenGIS configuration
       template:
-        src: beopengis-le-ssl.conf
-        dest: /etc/apache2/sites-enabled/beopengis-le-ssl.conf
+        src: beopengis.conf
+        dest: /etc/apache2/sites-enabled/beopengis.conf
       notify: apache restart
       tags:
         - beopengis
