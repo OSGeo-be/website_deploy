@@ -127,7 +127,20 @@
       tags:
         - mysql
 
+    - name: copy beOpenGIS site
+      git:
+        repo: https://github.com/OSGeo-be/beopengis
+        dest: /var/www/beopengis.foss4g.be
+      tags:
+        - beopengis
 
+    - name: add beOpenGIS configuration
+      template:
+        src: beopengis-le-ssl.conf
+        dest: /etc/apache2/sites-enabled/beopengis-le-ssl.conf
+      notify: apache restart
+      tags:
+        - beopengis
 
 
   handlers:
