@@ -45,7 +45,7 @@
     - name: ensure https certificate is renewed weekly
       cron:
           name: renew https certificate
-          job: "certbot renew -q -a certbot-plugin-gandi:dns --certbot-plugin-gandi:dns-credentials /root/gandi.ini --server https://     acme-v02.api.letsencrypt.org/directory"
+          job: "certbot renew -q -a certbot-plugin-gandi:dns --certbot-plugin-gandi:dns-credentials /root/gandi.ini --server https://acme-v02.api.letsencrypt.org/directory"
           special_time: weekly 
 
     - name: make sure mod_rewrite/ssl is enabled
