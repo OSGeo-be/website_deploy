@@ -3,12 +3,14 @@
   gather_facts: no
   vars:
     years:
-      - year: 2019
+      - year: 2022
+    #  - year: 2019
       - year: 2018
       - year: 2017
       - year: 2016
       - year: 2015
     mysql_years:
+      - year: 2022
       - year: 2019
       - year: 2018
       - year: 2017
